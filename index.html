@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>QuantumCrypton - Cyberpunk BB84 Simulator</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="container">
+  <h1>QuantumCrypton <span class="subtitle">BB84 Quantum Key Simulator</span></h1>
+
+  <div class="controls">
+    <button id="startBtn" class="btn">Start Simulation</button>
+    <button id="resetBtn" class="btn btn-secondary" disabled>Reset</button>
+    <label><input type="checkbox" id="eavesdropperCheck" /> Simulate Eve (Eavesdropper)</label>
+  </div>
+
+  <div class="simulation-area">
+    <div class="column">
+      <h2>Alice</h2>
+      <div id="aliceBits" class="bit-row"></div>
+      <div id="aliceBases" class="bit-row"></div>
+    </div>
+
+    <div class="column">
+      <h2>Bob</h2>
+      <div id="bobBases" class="bit-row"></div>
+      <div id="bobResults" class="bit-row"></div>
+    </div>
+  </div>
+
+  <div id="messages" class="messages"></div>
+
+  <div id="finalKeyArea" class="final-key"></div>
+
+  <div class="footer">
+    <p>© 2025 QuantumCrypton • Cyberpunk Matrix UI by ChatGPT</p>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
