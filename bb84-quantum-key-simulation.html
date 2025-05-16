@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BB84 Quantum Key Distribution Simulation - Cyberpunk Matrix</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+  body {
+    background: black;
+    color: #0f0;
+    font-family: 'Share Tech Mono', monospace;
+    margin: 0;
+    padding: 20px;
+    user-select: none;
+    overflow-x: hidden;
+  }
+  h1 {
+    text-align: center;
+    margin-bottom: 1.5rem;
+    text-shadow: 0 0 10px #0f0;
+  }
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    border: 1px solid #0f0;
+    padding: 20px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.85);
+    box-shadow: 0 0 25px #0f0;
+  }
+  .row-label {
+    font-weight: 700;
+    margin-top: 20px;
+    user-select: text;
+  }
+  .bit-row {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 4px;
+    margin-top: 6px;
+    overflow-x: auto;
+    padding-bottom: 5px;
+  }
+  .bit-box {
+    min-width: 22px;
+    min-height: 22px;
+    line-height: 22px;
+    border: 1px solid #0f0;
+    text-align: center;
+    font-size: 16px;
+    color: #0f0;
+    user-select: none;
+    box-shadow: 0 0 6px #0f0;
+    border-radius: 3px;
+    transition: background-color 0.3s, color 0.3s, box-shadow 0.3s;
+  }
+  .match {
+    background-color: #0f0;
+    color: #000;
+    box-shadow: 0 0 12px #0f0;
+  }
+  .mismatch {
+    background-color: #f00;
+    color: #000;
+    box-shadow: 0 0 12px #f00;
+  }
+  #messages {
+    margin-top: 20px;
+    font-size: 1.1rem;
+    min-height: 26px;
+    text-align: center;
+    font-weight: 600;
+  }
+  #finalKey {
+    margin-top: 15px;
+    font-weight: 700;
+    text-align: center;
+    font-size: 1.3rem;
+    text-shadow: 0 0 10px #0f0;
+    user-select: text;
+  }
+  .controls {
+    margin-top: 25px;
+    text-align: center;
+  }
+  button {
+    background-color: #0f0;
+    color: #000;
+    border: none;
+    padding: 10px 22px;
+    margin: 0 10px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    border-radius: 5px;
+    font-family: 'Share Tech Mono', monospace;
+    font-weight: 700;
+    transition: background-color 0.3s ease;
+  }
+  button:disabled {
+    background-color: #060;
+    cursor: not-allowed;
+  }
+  button:hover:not(:disabled) {
+    background-color: #0c0;
+  }
+  label {
+    font-size: 1rem;
+    user-select: none;
+    margin-left: 10px;
+    cursor: pointer;
+  }
+  /* Scrollbar for horizontal bit rows */
+  .bit-row::-webkit-scrollbar {
+    height: 8px;
+  }
+  .bit-row::-webkit-scrollbar-thumb {
+    background: #0f0;
+    border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+  <div class="container" role="main" aria-label="BB84 Quantum Key Distribution Simulation">
+    <h1>BB84 Quantum Key Distribution Simulation</h1>
+
+    <div class="row-label" aria-label="Alice's bits">Alice's Bits</div>
+    <div id="aliceBits" class="bit-row" aria-live="polite"></div>
+
+    <div class="row-label" aria-label="Alice's bases">Alice's Bases (+ or ×)</div>
+    <div id="aliceBases" class="bit-row" aria-live="polite"></div>
+
+    <div class="row-label" aria-label="Bob's bases">Bob's Bases (+ or ×)</div>
+    <div id="bobBases" class="bit-row" aria-live="polite"></div>
+
+    <div class="row-label" aria-label="Bob's measurement results">Bob's Results</div>
+    <div id="bobResults" class="bit-row" aria-live="polite"></div>
+
+    <div id="messages" role="status" aria-live="assertive"></div>
+    <div id="finalKey" aria-label="Shared secret key output"></div>
+
+    <div class="controls">
+      <button id="startBtn" aria-pressed="false" aria-label="Start BB84 simulation">Start Simulation</button>
+      <button id="resetBtn" disabled aria-label="Reset simulation">Reset</button>
+      <label for="eavesdropperCheck">
+        <input type="checkbox" id="eavesdropperCheck" aria-checked="false" />
+        Simulate Eavesdropper (Eve)
+      </label>
+    </div>
+  </div>
+
+<script>
+  const BIT_COUNT = 30;
+
+  const aliceBitsDiv = document.getElementById('aliceBits');
+  const aliceBasesDiv = document.getElementById('aliceBases');
+  const bobBasesDiv = document.getElementById('bobBases');
+  const bobResultsDiv = document.getElementById('bobResults');
+  const messagesDiv = document.getElementById('messages');
+  const finalKeyArea = document.getElementById('finalKey');
+  const startBtn = document.getElementById('startBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const eavesdropperCheck = document.getElementById('eavesdropperCheck');
+
+  let aliceBits = [];
+  let aliceBases = [];
+  let bobBases = [];
+  let bobResults = [];
+  let finalKey = [];
+  let running = false;
+
+  // Helpers to generate random bit and basis
+  function getRandomBit() {
+    return Math.random() < 0.5 ? 0 : 1;
+  }
+
+  function getRandomBasis() {
+    return Math.random() < 0.5 ? '+' : '×';  // Use × for better style
+  }
+
+  // Render arrays as boxes
+  function renderRow(container, arr) {
+    container.innerHTML = '';
+    arr.forEach(val => {
+      const box = document.createElement('div');
+      box.className = 'bit-box';
+      box.textContent = val;
+      container.appendChild(box);
+    });
+  }
+
+  // Simulate Bob's measurement considering possible Eve interference
+  function simulateTransmission(eavesdropper = false) {
+    bobBases = [];
+    bobResults = [];
+
+    for (let i = 0; i < BIT_COUNT; i++) {
+      bobBases.push(getRandomBasis());
+    }
+
+    for (let i = 0; i < BIT_COUNT; i++) {
+      if (eavesdropper) {
+        const eveBasis = getRandomBasis();
+        let eveResult;
+        if (eveBasis === aliceBases[i]) {
+          eveResult = aliceBits[i];
+        } else {
+          eveResult = getRandomBit();
+        }
+
+        if (bobBases[i] === eveBasis) {
+          bobResults.push(eveResult);
+        } else {
+          bobResults.push(getRandomBit());
+        }
+      } else {
+        if (bobBases[i] === aliceBases[i]) {
+          bobResults.push(aliceBits[i]);
+        } else {
+          bobResults.push(getRandomBit());
+        }
+      }
+    }
+  }
+
+  // Generate the final shared key from matching bases & bits
+  function generateKey() {
+    finalKey = [];
+    for (let i = 0; i < BIT_COUNT; i++) {
+      if (aliceBases[i] === bobBases[i]) {
+        if (aliceBits[i] === bobResults[i]) {
+          finalKey.push(aliceBits[i]);
+        } else {
+          finalKey.push('?');
+        }
+      } else {
+        finalKey.push('-');
+      }
+    }
+  }
+
+  // Add green or red highlight to Bob's results (match or mismatch)
+  function colorBobResults() {
+    const bobResultBoxes = bobResultsDiv.querySelectorAll('.bit-box');
+    for (let i = 0; i < BIT_COUNT; i++) {
+      if (aliceBases[i] === bobBases[i]) {
+        if (aliceBits[i] === bobResults[i]) {
+          bobResultBoxes[i].classList.add('match');
+        } else {
+          bobResultBoxes[i].classList.add('mismatch');
+        }
+      }
+    }
+  }
+
+  // Render all rows with current data
+  function renderAll() {
+    renderRow(aliceBitsDiv, aliceBits);
+    renderRow(aliceBasesDiv, aliceBases);
+    renderRow(bobBasesDiv, bobBases);
+    renderRow(bobResultsDiv, bobResults);
+    colorBobResults();
+  }
+
+  // Show status message
+  function showMessage(msg, isError = false) {
+    messagesDiv.textContent = msg;
+    messagesDiv.style.color = isError ? '#ff3300' : '#0f0';
+  }
+
+  // Display the final secret key (filter out placeholders)
+  function displayFinalKey() {
+    let keyStr = finalKey
+      .map(v => (v === '-' ? '' : v === '?' ? '✗' : v))
+      .filter(v => v !== '')
+
+
+
+
+
+
+ChatGPT said:
+bash
+Copy
+Edit
+  .join('');
+finalKeyArea.textContent = `Shared Secret Key: ${keyStr}`;
+}
+
+function glitchEffect() {
+// Simple body brightness glitch for cyberpunk effect
+document.body.style.filter =
+document.body.style.filter === 'brightness(1)'
+? 'brightness(1.15) saturate(1.5)'
+: 'brightness(1)';
+}
+
+let glitchInterval;
+
+function startSimulation() {
+if (running) return;
+running = true;
+
+pgsql
+Copy
+Edit
+// Generate Alice's random bits and bases
+aliceBits = [];
+aliceBases = [];
+for (let i = 0; i < BIT_COUNT; i++) {
+  aliceBits.push(getRandomBit());
+  aliceBases.push(getRandomBasis());
+}
+
+const eavesdropper = eavesdropperCheck.checked;
+simulateTransmission(eavesdropper);
+
+generateKey();
+renderAll();
+displayFinalKey();
+
+if (eavesdropper) {
+  showMessage('⚠️ Eavesdropping detected! Key mismatch found.', true);
+} else {
+  showMessage('✅ Key exchange successful. No eavesdropping detected.');
+}
+
+startBtn.disabled = true;
+resetBtn.disabled = false;
+
+glitchInterval = setInterval(glitchEffect, 400);
+}
+
+function resetSimulation() {
+running = false;
+aliceBits = [];
+aliceBases = [];
+bobBases = [];
+bobResults = [];
+finalKey = [];
+
+javascript
+Copy
+Edit
+aliceBitsDiv.innerHTML = '';
+aliceBasesDiv.innerHTML = '';
+bobBasesDiv.innerHTML = '';
+bobResultsDiv.innerHTML = '';
+messagesDiv.textContent = '';
+finalKeyArea.textContent = '';
+
+startBtn.disabled = false;
+resetBtn.disabled = true;
+
+clearInterval(glitchInterval);
+document.body.style.filter = 'brightness(1)';
+}
+
+startBtn.addEventListener('click', startSimulation);
+resetBtn.addEventListener('click', resetSimulation);
+</script>
+
+</body> </html>
